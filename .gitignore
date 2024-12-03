@@ -1,0 +1,41 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Environment variables
+.env
+
+# Virtual environments
+venv/
+.env/
+.venv/
+
+# VS Code and IDE settings
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs and debugging files
+*.log
+*.sqlite3
+
+# Pytest cache
+.pytest_cache/
+
+# Deployment artifacts
+*.pyc
+*.pyo
+*.pyd
+build/
+dist/
+
+# Docker
+*.env
+docker-compose.override.yml
