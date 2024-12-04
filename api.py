@@ -7,18 +7,17 @@ import sqlite3
 
 app = FastAPI()
 
-
+# Allow frontend to access the backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  
+    allow_origins=["http://localhost:3000"],  # Adjust if frontend runs elsewhere
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
+# Shared in-memory SQLite connection
 DATABASE_CONNECTION = sqlite3.connect(":memory:", check_same_thread=False)
-CURSOR = DATABASE_CONNECTION.cursor()
 
 class ForexQuery(BaseModel):
     from_currency: str
@@ -29,25 +28,25 @@ def create_table_and_store_data(table_name, data):
     """
     Creates a table if it doesn't exist and stores the given data.
     """
-    CURSOR.execute(f"""
-    CREATE TABLE IF NOT EXISTS {table_name} (
-        date TEXT PRIMARY KEY,
-        open_rate REAL,
-        high_rate REAL,
-        low_rate REAL,
-        close_rate REAL,
-        adj_close_rate REAL,
-        volume TEXT
-    )
-    """)
+    with DATABASE_CONNECTION:  # Use the connection context manager
+        cursor = DATABASE_CONNECTION.cursor()
+        cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS {table_name} (
+            date TEXT PRIMARY KEY,
+            open_rate REAL,
+            high_rate REAL,
+            low_rate REAL,
+            close_rate REAL,
+            adj_close_rate REAL,
+            volume TEXT
+        )
+        """)
 
-    for record in data:
-        CURSOR.execute(f"""
-        INSERT OR REPLACE INTO {table_name} (date, open_rate, high_rate, low_rate, close_rate, adj_close_rate, volume)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, record)
-
-    DATABASE_CONNECTION.commit()
+        for record in data:
+            cursor.execute(f"""
+            INSERT OR REPLACE INTO {table_name} (date, open_rate, high_rate, low_rate, close_rate, adj_close_rate, volume)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, record)
 
 @app.post("/api/forex-data")
 def get_forex_data(query: ForexQuery):
@@ -60,7 +59,7 @@ def get_forex_data(query: ForexQuery):
     period = query.period
     print(f"Received from_currency: {from_currency}, to_currency: {to_currency}, period: {period}")
 
-
+    # Calculate the date range
     today = datetime.now()
     if period == "1W":
         past_date = today - timedelta(days=7)
@@ -81,18 +80,20 @@ def get_forex_data(query: ForexQuery):
 
     table_name = f"{from_currency}{to_currency}_data"
 
-
     try:
-        query = f"""
-            SELECT * FROM {table_name}
-            WHERE date BETWEEN ? AND ?
-            ORDER BY date ASC
-        """
-        CURSOR.execute(query, (from_date, to_date))
-        rows = CURSOR.fetchall()
-        print(f"Fetched rows: {rows}")
+        # Use a separate cursor for this operation
+        with DATABASE_CONNECTION:  # Use connection context manager
+            cursor = DATABASE_CONNECTION.cursor()
+            query = f"""
+                SELECT * FROM {table_name}
+                WHERE date BETWEEN ? AND ?
+                ORDER BY date ASC
+            """
+            cursor.execute(query, (from_date, to_date))
+            rows = cursor.fetchall()
+            print(f"Fetched rows: {rows}")
     except sqlite3.OperationalError:
-
+        # Table does not exist; dynamically scrape data and create the table
         print(f"Table {table_name} does not exist. Scraping data...")
         try:
             one_year_ago = today - timedelta(days=365)
@@ -102,10 +103,12 @@ def get_forex_data(query: ForexQuery):
             scraped_data = scrape_forex_data(url)
             create_table_and_store_data(table_name, scraped_data)
 
-
-            CURSOR.execute(query, (from_date, to_date))
-            rows = CURSOR.fetchall()
-            print(f"Fetched rows after table creation: {rows}")
+            # Re-execute the query after creating the table
+            with DATABASE_CONNECTION:
+                cursor = DATABASE_CONNECTION.cursor()
+                cursor.execute(query, (from_date, to_date))
+                rows = cursor.fetchall()
+                print(f"Fetched rows after table creation: {rows}")
         except Exception as e:
             print(f"Failed to scrape or create table for {from_currency}{to_currency}: {e}")
             raise HTTPException(status_code=404, detail=f"Unable to fetch data for {from_currency}/{to_currency}")
@@ -126,13 +129,12 @@ def get_forex_data(query: ForexQuery):
         for row in rows
     ]
 
-
 @app.on_event("startup")
 def setup_database():
     """
     Initialize the database with scraped data at startup.
     """
-    currency_pairs = ["GBPINR", "AEDINR"]  
+    currency_pairs = ["GBPINR", "AEDINR"]  # Default pairs, configurable dynamically
     for pair in currency_pairs:
         today = datetime.now()
         one_year_ago = today - timedelta(days=365)
@@ -146,9 +148,11 @@ def setup_database():
             table_name = f"{pair}_data"
             create_table_and_store_data(table_name, scraped_data)
 
-
-            CURSOR.execute(f"SELECT * FROM {table_name} LIMIT 5")
-            rows = CURSOR.fetchall()
-            print(f"Sample data in {table_name}: {rows}")
+            # Debug: Verify stored data
+            with DATABASE_CONNECTION:
+                cursor = DATABASE_CONNECTION.cursor()
+                cursor.execute(f"SELECT * FROM {table_name} LIMIT 5")
+                rows = cursor.fetchall()
+                print(f"Sample data in {table_name}: {rows}")
         except Exception as e:
             print(f"Failed to scrape or store data for {pair}: {e}")
