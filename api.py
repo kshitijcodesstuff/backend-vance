@@ -13,7 +13,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000", 
         "http://192.168.0.175:3000", 
-        "https://frontend-vance.vercel.app"
+        "https://forexview.vercel.app"
     ],  # Add all required origins here
     allow_credentials=True,
     allow_methods=["*"],
