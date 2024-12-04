@@ -7,20 +7,20 @@ import sqlite3
 
 app = FastAPI()
 
-# Allow frontend to access the backend
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000", 
         "http://192.168.0.175:3000", 
         "https://forexview.vercel.app"
-    ],  # Add all required origins here
+    ], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Shared in-memory SQLite connection
+
 DATABASE_CONNECTION = sqlite3.connect(":memory:", check_same_thread=False)
 
 class ForexQuery(BaseModel):
@@ -32,7 +32,7 @@ def create_table_and_store_data(table_name, data):
     """
     Creates a table if it doesn't exist and stores the given data.
     """
-    with DATABASE_CONNECTION:  # Use the connection context manager
+    with DATABASE_CONNECTION: 
         cursor = DATABASE_CONNECTION.cursor()
         cursor.execute(f"""
         CREATE TABLE IF NOT EXISTS {table_name} (
@@ -63,7 +63,7 @@ def get_forex_data(query: ForexQuery):
     period = query.period
     print(f"Received from_currency: {from_currency}, to_currency: {to_currency}, period: {period}")
 
-    # Calculate the date range
+
     today = datetime.now()
     if period == "1W":
         past_date = today - timedelta(days=7)
@@ -85,8 +85,8 @@ def get_forex_data(query: ForexQuery):
     table_name = f"{from_currency}{to_currency}_data"
 
     try:
-        # Use a separate cursor for this operation
-        with DATABASE_CONNECTION:  # Use connection context manager
+
+        with DATABASE_CONNECTION:  
             cursor = DATABASE_CONNECTION.cursor()
             query = f"""
                 SELECT * FROM {table_name}
@@ -97,7 +97,7 @@ def get_forex_data(query: ForexQuery):
             rows = cursor.fetchall()
             print(f"Fetched rows: {rows}")
     except sqlite3.OperationalError:
-        # Table does not exist; dynamically scrape data and create the table
+
         print(f"Table {table_name} does not exist. Scraping data...")
         try:
             one_year_ago = today - timedelta(days=365)
@@ -107,7 +107,7 @@ def get_forex_data(query: ForexQuery):
             scraped_data = scrape_forex_data(url)
             create_table_and_store_data(table_name, scraped_data)
 
-            # Re-execute the query after creating the table
+
             with DATABASE_CONNECTION:
                 cursor = DATABASE_CONNECTION.cursor()
                 cursor.execute(query, (from_date, to_date))
@@ -138,7 +138,7 @@ def setup_database():
     """
     Initialize the database with scraped data at startup.
     """
-    currency_pairs = ["GBPINR", "AEDINR"]  # Default pairs, configurable dynamically
+    currency_pairs = ["GBPINR", "AEDINR"]  
     for pair in currency_pairs:
         today = datetime.now()
         one_year_ago = today - timedelta(days=365)
@@ -152,7 +152,7 @@ def setup_database():
             table_name = f"{pair}_data"
             create_table_and_store_data(table_name, scraped_data)
 
-            # Debug: Verify stored data
+
             with DATABASE_CONNECTION:
                 cursor = DATABASE_CONNECTION.cursor()
                 cursor.execute(f"SELECT * FROM {table_name} LIMIT 5")
