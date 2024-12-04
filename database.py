@@ -2,7 +2,7 @@ import sqlite3
 
 def store_data_in_db(data, table_name="forex_data"):
     """Stores data into an SQLite in-memory database."""
-    conn = sqlite3.connect(":memory:")  # In-memory database
+    conn = sqlite3.connect(":memory:") 
     cursor = conn.cursor()
 
     cursor.execute(f"""

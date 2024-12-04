@@ -18,7 +18,7 @@ def scrape_and_update():
             period2 = int(today.timestamp())
             url = f"https://finance.yahoo.com/quote/{pair}%3DX/history/?period1={period1}&period2={period2}"
 
-            # Scrape data for the pair
+
             scraped_data = scrape_forex_data(url)
             all_data[pair] = scraped_data
         except Exception as e:
@@ -29,7 +29,7 @@ def scrape_and_update():
         store_data_in_db(data, table_name)
         print(f"Data for {pair} updated successfully.")
 
-# Schedule the task to run periodically
+
 schedule.every(1).hours.do(scrape_and_update)
 
 if __name__ == "__main__":

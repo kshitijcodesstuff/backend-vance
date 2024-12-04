@@ -7,16 +7,16 @@ import sqlite3
 
 app = FastAPI()
 
-# Allow frontend to access the backend
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Adjust if frontend runs elsewhere
+    allow_origins=["http://localhost:3000"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Shared in-memory SQLite connection
+
 DATABASE_CONNECTION = sqlite3.connect(":memory:", check_same_thread=False)
 CURSOR = DATABASE_CONNECTION.cursor()
 
@@ -60,7 +60,7 @@ def get_forex_data(query: ForexQuery):
     period = query.period
     print(f"Received from_currency: {from_currency}, to_currency: {to_currency}, period: {period}")
 
-    # Calculate the date range
+
     today = datetime.now()
     if period == "1W":
         past_date = today - timedelta(days=7)
@@ -81,7 +81,7 @@ def get_forex_data(query: ForexQuery):
 
     table_name = f"{from_currency}{to_currency}_data"
 
-    # Check if the table exists
+
     try:
         query = f"""
             SELECT * FROM {table_name}
@@ -92,7 +92,7 @@ def get_forex_data(query: ForexQuery):
         rows = CURSOR.fetchall()
         print(f"Fetched rows: {rows}")
     except sqlite3.OperationalError:
-        # Table does not exist; dynamically scrape data and create the table
+
         print(f"Table {table_name} does not exist. Scraping data...")
         try:
             one_year_ago = today - timedelta(days=365)
@@ -102,7 +102,7 @@ def get_forex_data(query: ForexQuery):
             scraped_data = scrape_forex_data(url)
             create_table_and_store_data(table_name, scraped_data)
 
-            # Re-execute the query after creating the table
+
             CURSOR.execute(query, (from_date, to_date))
             rows = CURSOR.fetchall()
             print(f"Fetched rows after table creation: {rows}")
@@ -132,7 +132,7 @@ def setup_database():
     """
     Initialize the database with scraped data at startup.
     """
-    currency_pairs = ["GBPINR", "AEDINR"]  # Default pairs, configurable dynamically
+    currency_pairs = ["GBPINR", "AEDINR"]  
     for pair in currency_pairs:
         today = datetime.now()
         one_year_ago = today - timedelta(days=365)
@@ -146,7 +146,7 @@ def setup_database():
             table_name = f"{pair}_data"
             create_table_and_store_data(table_name, scraped_data)
 
-            # Debug: Verify stored data
+
             CURSOR.execute(f"SELECT * FROM {table_name} LIMIT 5")
             rows = CURSOR.fetchall()
             print(f"Sample data in {table_name}: {rows}")
